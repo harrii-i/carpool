@@ -26,7 +26,10 @@ env = environ.Env(
     EMAIL_USE_TLS=(bool, True),
     EMAIL_HOST=(str, ""),
     TRACKING_UPDATE_INTERVAL_SECONDS=(int, 4),
+    TRACKING_LOCATION_TTL_SECONDS=(int, 120),
+    TRACKING_SNAPSHOT_INTERVAL_SECONDS=(int, 30),
     SHARE_SESSION_TTL_HOURS=(int, 6),
+    SHARE_LINK_BASE_URL=(str, "https://carpool.example.app/track"),
     POINTS_DRIVER_COMPLETE=(int, 15),
     POINTS_PASSENGER_COMPLETE=(int, 10),
     COLLEGE_DOMAIN=(str, "college.edu"),
@@ -72,8 +75,10 @@ LOCAL_APPS = [
     "rides",
     "chat",
     "notifications",
+    "tracking",
+    "safety",
     # Domain apps are added as their phases land:
-    # "tracking", "safety", "rewards", "reports",
+    # "rewards", "reports",
 ]
 
 INSTALLED_APPS = DJANGO_APPS + THIRD_PARTY_APPS + LOCAL_APPS
@@ -249,7 +254,10 @@ OTP_TTL_MINUTES = env("OTP_TTL_MINUTES")
 OTP_MAX_ATTEMPTS = env("OTP_MAX_ATTEMPTS")
 
 TRACKING_UPDATE_INTERVAL_SECONDS = env("TRACKING_UPDATE_INTERVAL_SECONDS")
+TRACKING_LOCATION_TTL_SECONDS = env("TRACKING_LOCATION_TTL_SECONDS")
+TRACKING_SNAPSHOT_INTERVAL_SECONDS = env("TRACKING_SNAPSHOT_INTERVAL_SECONDS")
 SHARE_SESSION_TTL_HOURS = env("SHARE_SESSION_TTL_HOURS")
+SHARE_LINK_BASE_URL = env("SHARE_LINK_BASE_URL")
 
 POINTS_DRIVER_COMPLETE = env("POINTS_DRIVER_COMPLETE")
 POINTS_PASSENGER_COMPLETE = env("POINTS_PASSENGER_COMPLETE")

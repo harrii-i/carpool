@@ -325,6 +325,10 @@ def cancel_ride(*, ride_id, driver) -> Ride:
         status=BookingStatus.CANCELLED, cancelled_at=timezone.now()
     )
 
+    from tracking.services import end_sessions_for_ride
+
+    end_sessions_for_ride(ride)
+
     _notify_many(
         affected_ids,
         "RIDE_CANCELLED",
@@ -396,6 +400,11 @@ def complete_ride(*, ride_id, driver) -> Ride:
     _increment_completed_rides(ride.driver_id)
     for booking in confirmed:
         _increment_completed_rides(booking.passenger_id)
+
+    # Stop live tracking and expire active share sessions (§19).
+    from tracking.services import end_sessions_for_ride
+
+    end_sessions_for_ride(ride)
 
     participant_ids = [b.passenger_id for b in confirmed] + [ride.driver_id]
     _notify_many(

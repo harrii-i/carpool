@@ -17,6 +17,7 @@ from django.utils import timezone
 
 from accounts.models import CollegeStudent, StudentProfile, User
 from rides.models import Ride, RideStatus
+from safety.models import EmergencyContact
 from vehicles.models import Vehicle, VehicleType
 
 REGISTRY = [
@@ -73,6 +74,11 @@ class Command(BaseCommand):
                     "year": record.year,
                     "phone_number": phone,
                 },
+            )
+            EmergencyContact.objects.get_or_create(
+                user=user,
+                phone_number="+919800000000",
+                defaults={"name": "Emergency Contact", "relationship": "Parent", "is_primary": True},
             )
             self.stdout.write(
                 self.style.SUCCESS(

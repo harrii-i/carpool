@@ -193,6 +193,41 @@ Lifecycle events (request received/accepted/rejected, ride cancelled/starting/
 completed, new message) generate in-app notifications and are pushed live over
 the notification socket. Expo push is a wired no-op seam for now.
 
+## API — safety & tracking (Phase 4)
+
+**Tracking** — `/api/tracking/`
+| Method | Path | Purpose |
+|---|---|---|
+| POST | `/api/tracking/sessions/` | `{ride_id}` → create a share session (participants only), returns `share_token` + `share_url` |
+| GET | `/api/tracking/sessions/` | My share sessions |
+| POST | `/api/tracking/sessions/{id}/revoke/` | Revoke a session |
+| POST | `/api/tracking/sessions/{id}/location/` | Driver-only REST fallback to push a location |
+| GET | `/api/tracking/public/{token}/` | **Public** (no auth) tracking payload — driver first name, vehicle, origin/destination, ride status, current location. No private data. |
+
+**Safety / SOS** — `/api/sos/`
+| Method | Path | Purpose |
+|---|---|---|
+| GET/POST | `/api/sos/contacts/` + `/{id}/` | Emergency contact CRUD (owner-only) |
+| POST | `/api/sos/contacts/{id}/set_primary/` | Set the single primary contact |
+| GET/PUT/PATCH | `/api/sos/config/` | SOS configuration (what a trigger does) |
+| POST | `/api/sos/trigger/` | Trigger SOS → creates an immutable event, optionally starts sharing, returns `{event, actions}` |
+| GET | `/api/sos/events/` + `/{id}/` | Own SOS event history (immutable) |
+
+`trigger` returns an **actions** payload (`call`, `message`, `recipients`,
+`tracking_link`) for the client to execute natively — the backend never places
+calls or sends SMS (§29). Live tracking stops and share sessions end when a ride
+completes or is cancelled (§19).
+
+### WebSocket (tracking)
+
+| Endpoint | Purpose |
+|---|---|
+| `/ws/tracking/{share_token}/` | Anyone with a valid token connects and **views**; only the ride's authenticated driver (`?token=<access>`) may push `{latitude, longitude, speed?, heading?}`. Latest position sent on connect; refused (4404) for invalid/expired/revoked tokens. |
+
+Current location lives in Redis with a short TTL (goes "stale" automatically);
+only coarse, throttled snapshots are persisted so PostgreSQL never becomes a GPS
+event store (§24).
+
 ## Running tests
 
 ```bash
@@ -213,7 +248,7 @@ npx expo start
 1. **Foundation** *(done)* — infra, auth, college verification.
 2. **Core carpool** *(done)* — profile, vehicles, rides, requests, bookings, lifecycle, history.
 3. **Communication** *(done)* — WebSocket chat, notifications.
-4. Safety — emergency contacts, SOS, live location, shareable tracking.
+4. **Safety** *(done)* — emergency contacts, SOS, live location, shareable tracking.
 5. Reputation — points, ratings, reports.
 6. UI refinement — loading/empty/error/offline states, polish.
 

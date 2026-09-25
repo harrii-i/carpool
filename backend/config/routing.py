@@ -10,7 +10,6 @@ combined here:
 """
 from chat.routing import websocket_urlpatterns as chat_ws
 from notifications.routing import websocket_urlpatterns as notifications_ws
+from tracking.routing import websocket_urlpatterns as tracking_ws
 
-websocket_urlpatterns = chat_ws + notifications_ws
-
-# Tracking WebSockets are appended here when Phase 4 lands.
+websocket_urlpatterns = chat_ws + notifications_ws + tracking_ws

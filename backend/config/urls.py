@@ -21,9 +21,8 @@ urlpatterns = [
     path("api/", include("rides.urls")),
     path("api/chat/", include("chat.urls")),
     path("api/notifications/", include("notifications.urls")),
-    # Domain routers are mounted here as their phases land:
-    # path("api/tracking/", include("tracking.urls")),
-    # ...
+    path("api/tracking/", include("tracking.urls")),
+    path("api/sos/", include("safety.urls")),
 ]
 
 if settings.DEBUG:
