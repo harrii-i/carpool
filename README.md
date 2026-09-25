@@ -116,6 +116,51 @@ Errors use a uniform envelope: `{"error": {"code", "message", "detail?"}}`.
 Without SMTP configured (`EMAIL_HOST` blank), OTP emails print to the backend
 console — copy the code from the `docker compose` logs during development.
 
+## API — core carpool (Phase 2)
+
+All endpoints require a verified student (`Authorization: Bearer <access>`).
+
+**Profile** — `/api/profile/`
+| Method | Path | Purpose |
+|---|---|---|
+| GET | `/api/profile/` | Own profile |
+| PATCH | `/api/profile/` | Edit `phone_number` / `profile_image` (identity fields are locked) |
+
+**Vehicles** — `/api/vehicles/`
+| Method | Path | Purpose |
+|---|---|---|
+| GET/POST | `/api/vehicles/` | List / add own vehicles |
+| GET/PATCH/DELETE | `/api/vehicles/{id}/` | Retrieve / edit / remove |
+| POST | `/api/vehicles/{id}/deactivate/` · `/activate/` | Toggle availability |
+
+**Rides** — `/api/rides/`
+| Method | Path | Purpose |
+|---|---|---|
+| POST | `/api/rides/` | Create a ride (§12 validation) |
+| GET | `/api/rides/` | Rides I'm offering (as driver) |
+| GET | `/api/rides/search/` | Search: `origin_lat,origin_lng,destination_lat,destination_lng,radius_m,date,vehicle_type,min_seats` — PostGIS proximity, nearest first |
+| GET | `/api/rides/{id}/` | Ride details (§14) |
+| GET | `/api/rides/history/` | `{upcoming, active, completed, cancelled}` across both roles |
+| POST | `/api/rides/{id}/start/` · `/complete/` · `/cancel/` | Driver-only lifecycle transitions |
+| POST | `/api/rides/{id}/request_join/` | Request to join (alias) |
+
+**Ride requests** — `/api/ride-requests/`
+| Method | Path | Purpose |
+|---|---|---|
+| POST | `/api/ride-requests/` | `{ride_id}` → create a request (§16 rules) |
+| GET | `/api/ride-requests/?role=incoming\|outgoing&ride=<id>` | List requests |
+| POST | `/api/ride-requests/{id}/accept/` | Driver accepts → booking + atomic seat decrement |
+| POST | `/api/ride-requests/{id}/reject/` · `/cancel/` | Driver rejects / rider withdraws |
+
+**Bookings** — `/api/bookings/`
+| Method | Path | Purpose |
+|---|---|---|
+| GET | `/api/bookings/` | My bookings (as passenger) |
+| POST | `/api/bookings/{id}/cancel/` | Cancel → seat restored, FULL ride reopens |
+
+Seat changes (accept / cancel) lock the ride row (`select_for_update`) so the
+last seat cannot be oversold under concurrent requests (§16, §39).
+
 ## Running tests
 
 ```bash
@@ -134,7 +179,7 @@ npx expo start
 ## Development phases
 
 1. **Foundation** *(done)* — infra, auth, college verification.
-2. Core carpool — profile, vehicles, rides, requests, bookings, lifecycle, history.
+2. **Core carpool** *(done)* — profile, vehicles, rides, requests, bookings, lifecycle, history.
 3. Communication — WebSocket chat, notifications.
 4. Safety — emergency contacts, SOS, live location, shareable tracking.
 5. Reputation — points, ratings, reports.

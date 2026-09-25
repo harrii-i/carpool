@@ -61,6 +61,18 @@ class StudentProfileSerializer(serializers.ModelSerializer):
         read_only_fields = fields  # editing handled by dedicated profile endpoints
 
 
+class ProfileUpdateSerializer(serializers.ModelSerializer):
+    """Editable subset of the profile (§9).
+
+    Verified identity fields (name, admission_number, college_email,
+    department, year) are intentionally excluded and cannot be changed here.
+    """
+
+    class Meta:
+        model = StudentProfile
+        fields = ["phone_number", "profile_image"]
+
+
 class MeSerializer(serializers.ModelSerializer):
     """Payload for GET /api/auth/me/ — the user plus embedded profile."""
 

@@ -15,10 +15,12 @@ urlpatterns = [
     path("admin/", admin.site.urls),
     path("healthz/", health, name="health"),
     path("api/auth/", include("accounts.urls")),
+    path("api/profile/", include("accounts.profile_urls")),
+    path("api/vehicles/", include("vehicles.urls")),
+    # rides.urls registers rides/, ride-requests/, and bookings/ under /api/.
+    path("api/", include("rides.urls")),
     # Domain routers are mounted here as their phases land:
-    # path("api/profile/", include("accounts.profile_urls")),
-    # path("api/vehicles/", include("vehicles.urls")),
-    # path("api/rides/", include("rides.urls")),
+    # path("api/chat/", include("chat.urls")),
     # ...
 ]
 

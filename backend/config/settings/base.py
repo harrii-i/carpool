@@ -68,9 +68,10 @@ THIRD_PARTY_APPS = [
 LOCAL_APPS = [
     "common",
     "accounts",
+    "vehicles",
+    "rides",
     # Domain apps are added as their phases land:
-    # "vehicles", "rides", "chat", "tracking", "safety", "rewards",
-    # "notifications", "reports",
+    # "chat", "tracking", "safety", "rewards", "notifications", "reports",
 ]
 
 INSTALLED_APPS = DJANGO_APPS + THIRD_PARTY_APPS + LOCAL_APPS
@@ -119,6 +120,16 @@ DATABASES = {
 # django-environ maps the postgis:// scheme to the GIS backend automatically,
 # but we assert it here so a plain postgres:// URL still gets spatial support.
 DATABASES["default"]["ENGINE"] = "django.contrib.gis.db.backends.postgis"
+
+# GeoDjango locates GEOS/GDAL on the default library path in Docker/production.
+# On hosts where they live elsewhere (e.g. Homebrew), point to them explicitly
+# via the environment; unset (the default) leaves GeoDjango's own discovery.
+_geos_lib = env("GEOS_LIBRARY_PATH", default="")
+_gdal_lib = env("GDAL_LIBRARY_PATH", default="")
+if _geos_lib:
+    GEOS_LIBRARY_PATH = _geos_lib
+if _gdal_lib:
+    GDAL_LIBRARY_PATH = _gdal_lib
 
 # ---------------------------------------------------------------------------
 # Redis: cache + channel layer + live-location state

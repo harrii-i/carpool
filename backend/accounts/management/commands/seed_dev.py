@@ -1,19 +1,23 @@
 """
 Seed development data (§45).
 
-Phase 1 seeds the college registry plus two verified accounts so the auth flow
-is testable end-to-end:
+Seeds the college registry, two verified accounts, a vehicle for the driver, and
+a sample open ride so the core workflow is testable end-to-end:
 
     Student A (driver)    adm ADM1001  aisha@college.edu    / Passw0rd!123
     Student B (passenger) adm ADM1002  rahul@college.edu    / Passw0rd!123
 
-Vehicles and rides are added to this command as those phases land. Safe to run
-repeatedly — it upserts by admission number / email.
+Safe to run repeatedly — it upserts by admission number / email / registration.
 """
+from datetime import timedelta
+
 from django.core.management.base import BaseCommand
 from django.db import transaction
+from django.utils import timezone
 
 from accounts.models import CollegeStudent, StudentProfile, User
+from rides.models import Ride, RideStatus
+from vehicles.models import Vehicle, VehicleType
 
 REGISTRY = [
     ("ADM1001", "Aisha Rahman", "aisha@college.edu", "Computer Science", 2),
@@ -75,5 +79,38 @@ class Command(BaseCommand):
                     f"Account: {record.college_email} / {DEFAULT_PASSWORD}"
                 )
             )
+
+        # --- A vehicle + a sample open ride for Student A (the driver) ---
+        driver = User.objects.get(email="aisha@college.edu")
+        vehicle, _ = Vehicle.objects.update_or_create(
+            registration_number="KL01AB1234",
+            defaults={
+                "owner": driver,
+                "vehicle_type": VehicleType.CAR,
+                "brand": "Toyota",
+                "model": "Etios",
+                "color": "White",
+                "seat_capacity": 4,
+                "is_active": True,
+            },
+        )
+        if not Ride.objects.filter(driver=driver, status=RideStatus.OPEN).exists():
+            Ride.objects.create(
+                driver=driver,
+                vehicle=vehicle,
+                origin="College Main Gate",
+                destination="Central Railway Station",
+                origin_latitude=8.5241,
+                origin_longitude=76.9366,
+                destination_latitude=8.4875,
+                destination_longitude=76.9525,
+                departure_time=timezone.now() + timedelta(hours=6),
+                total_seats=3,
+                available_seats=3,
+                contribution_amount=50,
+                notes="Leaving from the main gate. Bring exact change.",
+                status=RideStatus.OPEN,
+            )
+            self.stdout.write(self.style.SUCCESS("Sample open ride created for the driver."))
 
         self.stdout.write(self.style.SUCCESS("Done. Log in with a seeded account above."))
