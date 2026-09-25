@@ -70,8 +70,10 @@ LOCAL_APPS = [
     "accounts",
     "vehicles",
     "rides",
+    "chat",
+    "notifications",
     # Domain apps are added as their phases land:
-    # "chat", "tracking", "safety", "rewards", "notifications", "reports",
+    # "tracking", "safety", "rewards", "reports",
 ]
 
 INSTALLED_APPS = DJANGO_APPS + THIRD_PARTY_APPS + LOCAL_APPS

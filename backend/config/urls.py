@@ -19,8 +19,10 @@ urlpatterns = [
     path("api/vehicles/", include("vehicles.urls")),
     # rides.urls registers rides/, ride-requests/, and bookings/ under /api/.
     path("api/", include("rides.urls")),
+    path("api/chat/", include("chat.urls")),
+    path("api/notifications/", include("notifications.urls")),
     # Domain routers are mounted here as their phases land:
-    # path("api/chat/", include("chat.urls")),
+    # path("api/tracking/", include("tracking.urls")),
     # ...
 ]
 

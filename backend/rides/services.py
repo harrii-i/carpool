@@ -128,7 +128,20 @@ def request_to_join(*, ride_id, rider) -> RideRequest:
             "You already have a pending request for this ride.", code="duplicate_request"
         )
 
-    return RideRequest.objects.create(ride=ride, rider=rider)
+    req = RideRequest.objects.create(ride=ride, rider=rider)
+
+    from notifications.models import NotificationType
+    from notifications.services import notify_user_id
+
+    rider_name = getattr(getattr(rider, "profile", None), "name", "A student")
+    notify_user_id(
+        ride.driver_id,
+        NotificationType.RIDE_REQUEST_RECEIVED,
+        title="New ride request",
+        message=f"{rider_name} requested to join your ride to {ride.destination}.",
+        data={"ride_id": str(ride.id), "request_id": str(req.id)},
+    )
+    return req
 
 
 @transaction.atomic
@@ -168,6 +181,19 @@ def accept_request(*, request_id, driver) -> Booking:
         ride.status = RideStatus.FULL
         ride.save(update_fields=["status", "updated_at"])
 
+    # Grant chat access to the newly-confirmed passenger (§20) and notify them.
+    from chat.services import add_participant
+    from notifications.models import NotificationType
+    from notifications.services import notify_user_id
+
+    add_participant(ride, req.rider)
+    notify_user_id(
+        req.rider_id,
+        NotificationType.RIDE_REQUEST_ACCEPTED,
+        title="Request accepted",
+        message=f"Your seat on the ride to {ride.destination} is confirmed.",
+        data={"ride_id": str(ride.id), "booking_id": str(booking.id)},
+    )
     return booking
 
 
@@ -185,6 +211,17 @@ def reject_request(*, request_id, driver) -> RideRequest:
 
     req.status = RideRequestStatus.REJECTED
     req.save(update_fields=["status", "updated_at"])
+
+    from notifications.models import NotificationType
+    from notifications.services import notify_user_id
+
+    notify_user_id(
+        req.rider_id,
+        NotificationType.RIDE_REQUEST_REJECTED,
+        title="Request declined",
+        message=f"Your request to join the ride to {req.ride.destination} was declined.",
+        data={"ride_id": str(req.ride_id)},
+    )
     return req
 
 
@@ -239,6 +276,10 @@ def cancel_booking(*, booking_id, passenger) -> Booking:
         ride.status = RideStatus.OPEN
         ride.save(update_fields=["status", "updated_at"])
 
+    # Revoke the passenger's chat access now that they are no longer confirmed.
+    from chat.services import remove_participant
+
+    remove_participant(ride, passenger)
     return booking
 
 
@@ -261,6 +302,17 @@ def cancel_ride(*, ride_id, driver) -> Ride:
             "Only open or full rides can be cancelled.", code="invalid_transition"
         )
 
+    # Collect affected users before flipping statuses, so we can notify them.
+    affected_ids = set(
+        ride.bookings.filter(status=BookingStatus.CONFIRMED).values_list(
+            "passenger_id", flat=True
+        )
+    ) | set(
+        ride.requests.filter(status=RideRequestStatus.PENDING).values_list(
+            "rider_id", flat=True
+        )
+    )
+
     ride.status = RideStatus.CANCELLED
     ride.cancelled_at = timezone.now()
     ride.save(update_fields=["status", "cancelled_at", "updated_at"])
@@ -271,6 +323,14 @@ def cancel_ride(*, ride_id, driver) -> Ride:
     )
     ride.bookings.filter(status=BookingStatus.CONFIRMED).update(
         status=BookingStatus.CANCELLED, cancelled_at=timezone.now()
+    )
+
+    _notify_many(
+        affected_ids,
+        "RIDE_CANCELLED",
+        title="Ride cancelled",
+        message=f"The ride to {ride.destination} was cancelled by the driver.",
+        data={"ride_id": str(ride.id)},
     )
     return ride
 
@@ -289,6 +349,17 @@ def start_ride(*, ride_id, driver) -> Ride:
     ride.status = RideStatus.STARTED
     ride.started_at = timezone.now()
     ride.save(update_fields=["status", "started_at", "updated_at"])
+
+    passenger_ids = ride.bookings.filter(status=BookingStatus.CONFIRMED).values_list(
+        "passenger_id", flat=True
+    )
+    _notify_many(
+        passenger_ids,
+        "RIDE_STARTING",
+        title="Ride starting",
+        message=f"Your ride to {ride.destination} has started.",
+        data={"ride_id": str(ride.id)},
+    )
     return ride
 
 
@@ -326,6 +397,14 @@ def complete_ride(*, ride_id, driver) -> Ride:
     for booking in confirmed:
         _increment_completed_rides(booking.passenger_id)
 
+    participant_ids = [b.passenger_id for b in confirmed] + [ride.driver_id]
+    _notify_many(
+        participant_ids,
+        "RIDE_COMPLETED",
+        title="Ride completed",
+        message=f"Your ride to {ride.destination} is complete.",
+        data={"ride_id": str(ride.id)},
+    )
     return ride
 
 
@@ -335,6 +414,14 @@ def _increment_completed_rides(user_id) -> None:
     StudentProfile.objects.filter(user_id=user_id).update(
         completed_rides=F("completed_rides") + 1
     )
+
+
+def _notify_many(user_ids, notif_type, *, title, message, data=None) -> None:
+    """Send the same notification to several users (deduplicated)."""
+    from notifications.services import notify_user_id
+
+    for user_id in set(user_ids):
+        notify_user_id(user_id, notif_type, title=title, message=message, data=data)
 
 
 # ---------------------------------------------------------------------------

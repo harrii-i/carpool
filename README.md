@@ -161,6 +161,38 @@ All endpoints require a verified student (`Authorization: Bearer <access>`).
 Seat changes (accept / cancel) lock the ride row (`select_for_update`) so the
 last seat cannot be oversold under concurrent requests (§16, §39).
 
+## API — communication (Phase 3)
+
+**Chat** — `/api/chat/` (confirmed participants only, §20/§38). A conversation is
+created automatically when the first booking on a ride is confirmed; access is
+revoked when a passenger cancels.
+| Method | Path | Purpose |
+|---|---|---|
+| GET | `/api/chat/conversations/` | My conversations (last message + unread count) |
+| GET | `/api/chat/conversations/{id}/messages/` | Message history (paginated) |
+| POST | `/api/chat/conversations/{id}/messages/` | `{message}` → send (REST fallback) |
+| POST | `/api/chat/conversations/{id}/read/` | Mark conversation read |
+
+**Notifications** — `/api/notifications/` (§33)
+| Method | Path | Purpose |
+|---|---|---|
+| GET | `/api/notifications/` | My notifications, newest first |
+| GET | `/api/notifications/unread_count/` | Unread count |
+| POST | `/api/notifications/{id}/read/` · `/read_all/` | Mark read |
+
+### WebSockets
+
+Authenticate with the REST access token as a query param: `?token=<access>`.
+
+| Endpoint | Purpose |
+|---|---|
+| `/ws/chat/{conversation_id}/` | Real-time chat. Send `{"action":"message","message":"..."}` or `{"action":"read"}`; receive `{"type":"message",...}`. Refused (4403) for non-participants, (4401) unauthenticated. |
+| `/ws/notifications/` | Live notification stream for the authenticated user. |
+
+Lifecycle events (request received/accepted/rejected, ride cancelled/starting/
+completed, new message) generate in-app notifications and are pushed live over
+the notification socket. Expo push is a wired no-op seam for now.
+
 ## Running tests
 
 ```bash
@@ -180,7 +212,7 @@ npx expo start
 
 1. **Foundation** *(done)* — infra, auth, college verification.
 2. **Core carpool** *(done)* — profile, vehicles, rides, requests, bookings, lifecycle, history.
-3. Communication — WebSocket chat, notifications.
+3. **Communication** *(done)* — WebSocket chat, notifications.
 4. Safety — emergency contacts, SOS, live location, shareable tracking.
 5. Reputation — points, ratings, reports.
 6. UI refinement — loading/empty/error/offline states, polish.
