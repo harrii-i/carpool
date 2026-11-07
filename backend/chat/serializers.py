@@ -25,6 +25,7 @@ class ConversationSerializer(serializers.ModelSerializer):
     ride_status = serializers.CharField(source="ride.status", read_only=True)
     last_message = serializers.SerializerMethodField()
     unread_count = serializers.SerializerMethodField()
+    other_participants = serializers.SerializerMethodField()
 
     class Meta:
         model = Conversation
@@ -36,6 +37,7 @@ class ConversationSerializer(serializers.ModelSerializer):
             "ride_status",
             "last_message",
             "unread_count",
+            "other_participants",
             "created_at",
         ]
 
@@ -48,6 +50,35 @@ class ConversationSerializer(serializers.ModelSerializer):
         if not user:
             return 0
         return unread_count(conversation_id=obj.id, user=user)
+
+    def get_other_participants(self, obj) -> list[dict]:
+        """Who else is in this conversation (never includes the caller).
+
+        A conversation is one-per-ride but can have more than two members
+        (the driver plus every confirmed passenger), so this is a list, not a
+        single peer — the client picks how to summarise it for display.
+        """
+        user = getattr(self.context.get("request"), "user", None)
+        participants = (
+            obj.participants.select_related("user__profile")
+            .exclude(user=user)
+            .order_by("created_at")
+        )
+        result = []
+        for p in participants:
+            profile = getattr(p.user, "profile", None)
+            result.append(
+                {
+                    "id": str(p.user_id),
+                    "name": profile.name if profile else "",
+                    "profile_image": (
+                        profile.profile_image.url
+                        if profile and profile.profile_image
+                        else None
+                    ),
+                }
+            )
+        return result
 
 
 class SendMessageSerializer(serializers.Serializer):

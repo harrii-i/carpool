@@ -5,6 +5,9 @@ from django.contrib import admin
 from django.http import JsonResponse
 from django.urls import include, path
 
+from rewards.urls import ratings_urlpatterns as rewards_ratings_urls
+from rewards.urls import urlpatterns as rewards_points_urls
+
 
 def health(_request):
     """Lightweight liveness probe."""
@@ -23,6 +26,10 @@ urlpatterns = [
     path("api/notifications/", include("notifications.urls")),
     path("api/tracking/", include("tracking.urls")),
     path("api/sos/", include("safety.urls")),
+    # rewards exposes two mount points: points ledger and ratings.
+    path("api/rewards/", include((rewards_points_urls, "rewards"))),
+    path("api/ratings/", include((rewards_ratings_urls, "ratings"))),
+    path("api/reports/", include("reports.urls")),
 ]
 
 if settings.DEBUG:

@@ -105,4 +105,7 @@ class MeView(APIView):
     permission_classes = [IsAuthenticated]
 
     def get(self, request):
-        return Response(MeSerializer(request.user).data)
+        # Pass request context so any ImageField (profile_image) serializes to
+        # an absolute URL — without it, DRF returns a bare relative path that
+        # the mobile app can't resolve into a loadable image.
+        return Response(MeSerializer(request.user, context={"request": request}).data)

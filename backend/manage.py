@@ -5,7 +5,9 @@ import sys
 
 
 def main():
-    os.environ.setdefault("DJANGO_SETTINGS_MODULE", "config.settings.dev")
+    from config._dotenv_settings import preload_settings_module
+
+    preload_settings_module(default="config.settings.dev")
     try:
         from django.core.management import execute_from_command_line
     except ImportError as exc:

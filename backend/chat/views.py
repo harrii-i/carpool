@@ -26,9 +26,12 @@ class ConversationViewSet(
     serializer_class = ConversationSerializer
 
     def get_queryset(self):
-        # Only conversations the caller participates in (§38).
+        # Only conversations the caller participates in (§38). Prefetch the
+        # participant list (+ profiles) up front so the serializer's
+        # `other_participants` field doesn't issue one query per row.
         return (
             Conversation.objects.select_related("ride")
+            .prefetch_related("participants__user__profile")
             .filter(participants__user=self.request.user)
             .distinct()
         )

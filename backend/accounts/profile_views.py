@@ -15,7 +15,11 @@ class ProfileView(APIView):
     parser_classes = [JSONParser, MultiPartParser, FormParser]
 
     def get(self, request):
-        return Response(StudentProfileSerializer(request.user.profile).data)
+        # Pass request context so profile_image serializes to an absolute URL
+        # (otherwise DRF returns a bare relative path the client can't load).
+        return Response(
+            StudentProfileSerializer(request.user.profile, context={"request": request}).data
+        )
 
     def patch(self, request):
         serializer = ProfileUpdateSerializer(
@@ -24,6 +28,6 @@ class ProfileView(APIView):
         serializer.is_valid(raise_exception=True)
         serializer.save()
         return Response(
-            StudentProfileSerializer(request.user.profile).data,
+            StudentProfileSerializer(request.user.profile, context={"request": request}).data,
             status=status.HTTP_200_OK,
         )

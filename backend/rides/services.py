@@ -401,6 +401,11 @@ def complete_ride(*, ride_id, driver) -> Ride:
     for booking in confirmed:
         _increment_completed_rides(booking.passenger_id)
 
+    # Award completion points via trusted backend logic (§31, idempotent).
+    from rewards.services import award_points_for_ride
+
+    award_points_for_ride(ride)
+
     # Stop live tracking and expire active share sessions (§19).
     from tracking.services import end_sessions_for_ride
 
@@ -412,6 +417,14 @@ def complete_ride(*, ride_id, driver) -> Ride:
         "RIDE_COMPLETED",
         title="Ride completed",
         message=f"Your ride to {ride.destination} is complete.",
+        data={"ride_id": str(ride.id)},
+    )
+    # Rating is now available to all participants (§19, §32).
+    _notify_many(
+        participant_ids,
+        "RATING_AVAILABLE",
+        title="Rate your ride",
+        message=f"Leave a rating for your ride to {ride.destination}.",
         data={"ride_id": str(ride.id)},
     )
     return ride

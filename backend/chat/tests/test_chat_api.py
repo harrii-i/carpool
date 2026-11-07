@@ -33,6 +33,20 @@ class ChatAccessTests(APITestCase):
         resp = self.client.get(reverse("chat:conversation-list"))
         self.assertEqual(resp.data["count"], 0)
 
+    def test_other_participants_excludes_caller_and_shows_the_peer(self):
+        self.client.force_authenticate(self.rider)
+        resp = self.client.get(reverse("chat:conversation-list"))
+        others = resp.data["results"][0]["other_participants"]
+        self.assertEqual(len(others), 1)
+        self.assertEqual(others[0]["id"], str(self.driver.id))
+        self.assertEqual(others[0]["name"], self.driver.profile.name)
+
+        # From the driver's side, the rider is the "other" participant instead.
+        self.client.force_authenticate(self.driver)
+        resp = self.client.get(reverse("chat:conversation-list"))
+        others = resp.data["results"][0]["other_participants"]
+        self.assertEqual(others[0]["id"], str(self.rider.id))
+
         self.client.force_authenticate(self.rider)
         resp = self.client.get(reverse("chat:conversation-list"))
         self.assertEqual(resp.data["count"], 1)

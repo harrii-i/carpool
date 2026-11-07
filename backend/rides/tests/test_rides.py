@@ -161,3 +161,77 @@ class RideLifecycleTests(APITestCase):
         self.assertEqual(len(resp.data["upcoming"]), 1)
         self.assertEqual(len(resp.data["completed"]), 1)
         self.assertEqual(resp.data["upcoming"][0]["role"], "driver")
+
+
+class DualRoleAccountTests(APITestCase):
+    """
+    One account, two roles, no stored role flag (mobile role/mode feature).
+
+    There is no Driver/Rider account type and no `role` field on User: driver
+    eligibility is derived purely from vehicle ownership, and a ride's "role"
+    is computed per-ride, not stored as identity. These tests pin down that a
+    single account can hold both roles simultaneously and that a client-side
+    UI preference has nothing to do with backend authorization.
+    """
+
+    def setUp(self):
+        from rides.services import accept_request, request_to_join
+
+        # One account acts as driver on one ride...
+        self.user = make_verified_user(admission_number="ADM1", college_email="u@college.edu")
+        self.other_driver = make_verified_user(
+            admission_number="ADM2", college_email="other@college.edu"
+        )
+        self.my_ride = make_ride(self.user, available_seats=2)
+
+        # ...and as a confirmed passenger on someone else's ride, at the same time.
+        their_ride = make_ride(self.other_driver, available_seats=1)
+        req = request_to_join(ride_id=their_ride.id, rider=self.user)
+        accept_request(request_id=req.id, driver=self.other_driver)
+        self.their_ride = their_ride
+
+    def test_single_account_holds_both_roles_in_history(self):
+        """Both roles appear, correctly tagged, for the same account at once."""
+        self.client.force_authenticate(self.user)
+        resp = self.client.get(reverse("rides:ride-history"))
+        self.assertEqual(resp.status_code, status.HTTP_200_OK)
+
+        upcoming_by_id = {r["id"]: r for r in resp.data["upcoming"]}
+        self.assertEqual(upcoming_by_id[str(self.my_ride.id)]["role"], "driver")
+        self.assertEqual(upcoming_by_id[str(self.their_ride.id)]["role"], "passenger")
+
+    def test_vehicle_ownership_not_a_prior_booking_gates_ride_creation(self):
+        """Already being a confirmed passenger elsewhere doesn't block driving."""
+        from rides.services import create_ride
+
+        vehicle = make_vehicle(self.user, registration="KL09DUAL1")
+        ride = create_ride(
+            driver=self.user,
+            vehicle_id=vehicle.id,
+            origin="Campus",
+            destination="Town",
+            origin_latitude=NEAR_A[0],
+            origin_longitude=NEAR_A[1],
+            destination_latitude=FAR[0],
+            destination_longitude=FAR[1],
+            departure_time=timezone.now() + timedelta(hours=3),
+            available_seats=2,
+        )
+        self.assertEqual(ride.driver_id, self.user.id)
+
+    def test_already_owning_a_vehicle_does_not_block_requesting_to_join(self):
+        """Being driver-capable (owns a vehicle) doesn't block riding elsewhere."""
+        from rides.services import request_to_join
+
+        make_vehicle(self.user, registration="KL09DUAL2")  # driver-capable now
+        another_ride = make_ride(self.other_driver, vehicle=make_vehicle(
+            self.other_driver, registration="KL09DUAL3"
+        ))
+        req = request_to_join(ride_id=another_ride.id, rider=self.user)
+        self.assertEqual(req.rider_id, self.user.id)
+
+    def test_no_role_field_exists_on_user_or_profile(self):
+        """Guards against a future regression reintroducing a stored role."""
+        self.assertFalse(hasattr(self.user, "role"))
+        self.assertFalse(hasattr(self.user, "user_type"))
+        self.assertFalse(hasattr(self.user.profile, "role"))

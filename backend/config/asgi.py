@@ -5,11 +5,11 @@ Serves HTTP through Django and WebSockets through Channels. The WebSocket
 routing table is assembled in config.routing and grows as the chat and
 tracking phases land.
 """
-import os
-
 from django.core.asgi import get_asgi_application
 
-os.environ.setdefault("DJANGO_SETTINGS_MODULE", "config.settings.dev")
+from config._dotenv_settings import preload_settings_module
+
+preload_settings_module(default="config.settings.dev")
 
 # Initialise Django (populates the app registry) before importing anything
 # that touches models / consumers.
